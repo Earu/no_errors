@@ -10,6 +10,7 @@
 	  ".git/*",
 	  ".gitignore",
 	  "update.bat",
-	  ".gma"
+	  ".gma",
+	  "LICENSE"
 	]
   }
