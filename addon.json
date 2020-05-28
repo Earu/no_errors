@@ -1,0 +1,15 @@
+{
+	"title": "!*$%? ERRORS",
+	"type": "ServerContent",
+	"tags": [ "build", "realism" ],
+	"ignore": [
+	  "*.psd",
+	  "*.vcproj",
+	  "*.svn*",
+	  "*.md",
+	  ".git/*",
+	  ".gitignore",
+	  "update.bat",
+	  ".gma"
+	]
+  }
