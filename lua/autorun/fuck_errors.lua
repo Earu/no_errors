@@ -122,13 +122,11 @@ if CLIENT then
         local should_fix_base_texture2 = ShouldFixShader(key_values, "$basetexture2", base_texture2)
 
         if should_fix_base_texture then
-            print(base_texture, should_fix_base_texture)
             material:SetTexture("$basetexture", "no_errors/missing1")
             was_error = true
         end
 
         if should_fix_base_texture2 then
-            print(base_texture2, should_fix_base_texture2)
             material:SetTexture("$basetexture2", "no_errors/missing1")
             was_error = true
         end
@@ -319,8 +317,8 @@ if CLIENT then
         end
     end
 
-    hook.Add("NetworkEntityCreated", tag, function(ent)
-        timer.Simple(0, function() -- maybe too early otherwise
+    hook.Add("OnEntityCreated", tag, function(ent)
+        timer.Simple(0.25, function() -- maybe too early otherwise
             RegisterEnt(ent)
         end)
     end)
