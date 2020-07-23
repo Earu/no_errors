@@ -24,6 +24,8 @@ if SERVER then
 end
 
 if CLIENT then
+    module("no_errors", package.seeall)
+
     --require("deps/bspstaticprops")
     require("deps/mdlinspect")
 
@@ -33,8 +35,8 @@ if CLIENT then
     mapdata:LoadLumps(43)
     mapdata:LoadStaticProps()
 
-    local mapmaterials = mapdata.lumps[43].data
-    local staticprops = mapdata.static_props
+    local map_materials = mapdata.lumps[43].data
+    local static_props = mapdata.static_props
 
     CreateMaterial("no_errors_mat1", "VertexLitGeneric",
     {
@@ -47,7 +49,7 @@ if CLIENT then
         ["$color"] = "1 1 1"
     })
 
-    local errormodel = "models/error.mdl"
+    local error_model = "models/error.mdl"
     local green = Color(0, 255, 0, 255)
     local orange = Color(255, 125, 0, 255)
     local white = Color(255, 255, 255, 255)
@@ -70,40 +72,31 @@ if CLIENT then
         MsgC(orange, "[NoErrors] ⮞ ", white, msg .. "\n")
     end
 
-    local function IsNilOrEmptyString(str)
-        return str == nil or (str:Trim() == "")
+    function IsErrorTexture(texture)
+        return texture:IsError() or (texture:GetName() == "error")
     end
 
-    local function IsErrorTexture(text)
-        return text:IsError() or (text:GetName() == "error")
-    end
-
-    local function SameInKeyValues(keyvalues, shader, text)
-        local name1 = text and text:GetName() or nil
-        local shadervalue = keyvalues[shader]
-        local name2 = nil
-        if type(shadervalue) == "ITexture" then
-            name2 = shadervalue:GetName() or nil
-        else
-            name2 = shadervalue ~= nil and tostring(shadervalue) or nil
+    function SameInKeyValues(key_values, shader, texture)
+        local shader_value = key_values[shader]
+        if texture and shader_value and type(shader_value) == "ITexture" then
+            return texture:GetName() == shader_value:GetName()
         end
 
-        return name1 == name2
+        if not texture and not shader_value then return true end
+
+        return false
     end
 
-    local exceptions = {["$basetexture2"] = true}
-    local function ShouldFixShader(keyvalues, shader, txt)
-        if not keyvalues[shader] and not exceptions[shader] then
-            return false
-        end
-
-        return (txt and IsErrorTexture(txt)) or not SameInKeyValues(keyvalues, shader, txt)
+    --local exceptions = { ["$basetexture2"] = true }
+    function ShouldFixShader(key_values, shader, texture)
+        if not key_values[shader] then return false end
+        return (texture and IsErrorTexture(texture)) or not SameInKeyValues(key_values, shader, texture)
     end
 
-    local badshaders = {"water", "reflective"}
-    local function HasBadShader(mat)
-        for _, badshader in ipairs(badshaders) do
-            if mat:GetShader():lower():find(badshader) then
+    local bad_shaders = { "water", "reflective" }
+    function HasBadShader(material)
+        for _, bad_shader in ipairs(bad_shaders) do
+            if material:GetShader():lower():find(bad_shader) then
                 return true
             end
         end
@@ -111,101 +104,102 @@ if CLIENT then
         return false
     end
 
-    local function TryFixMaterial(matpath)
-        if matpath:match("^TOOLS") then return false end
+    function TryFixMaterial(material_path)
+        if material_path:match("^TOOLS") then return false end -- skybox materials
 
-        local mat = Material(matpath)
-        if not mat then return true end
+        local material = Material(material_path)
+        if not material then return true end
 
-        if HasBadShader(mat) then return false end
+        if HasBadShader(material) then return false end
 
-        local waserror = false
-        local keyvalues = mat:GetKeyValues()
-        local isglass = matpath:lower():find("glass", 1, true)
-        local basetxt = mat:GetTexture("$basetexture")
-        local basetxtvalid = not ShouldFixShader(keyvalues, "$basetexture", basetxt)
-        local basetxt2 = mat:GetTexture("$basetexture2")
-        local basetxt2valid = not ShouldFixShader(keyvalues, "$basetexture2", basetxt2)
-        local detailtxt = mat:GetTexture("$detail")
+        local was_error = false
+        local key_values = material:GetKeyValues()
 
-        if not basetxtvalid then
-            mat:SetTexture("$basetexture", "no_errors/missing1")
-            waserror = true
+        local base_texture = material:GetTexture("$basetexture")
+        local should_fix_base_texture = ShouldFixShader(key_values, "$basetexture", base_texture)
+
+        local base_texture2 = material:GetTexture("$basetexture2")
+        local should_fix_base_texture2 = ShouldFixShader(key_values, "$basetexture2", base_texture2)
+
+        if should_fix_base_texture then
+            print(base_texture, should_fix_base_texture)
+            material:SetTexture("$basetexture", "no_errors/missing1")
+            was_error = true
         end
 
-        if not basetxt2valid then
-            if not basetxtvalid or not basetxt then
-                mat:SetTexture("$basetexture", "no_errors/missing1")
-                mat:SetTexture("$basetexture2", "no_errors/missing1")
-                waserror = true
+        if should_fix_base_texture2 then
+            print(base_texture2, should_fix_base_texture2)
+            material:SetTexture("$basetexture2", "no_errors/missing1")
+            was_error = true
+        end
+
+        local detail_texture = material:GetTexture("$detail")
+        if ShouldFixShader(key_values, "$detail", detail_texture) then
+            if base_texture or base_texture2 then
+                material:SetTexture("$detail", "no_errors/missing1")
+                material:SetInt("$detailscale", 0)
+                material:SetInt("$detailblendmode", 0)
+                was_error = true
             end
         end
 
-        if ShouldFixShader(keyvalues, "$detail", detailtxt) then
-            if (not basetxtvalid and basetxt) or (not basetxt2valid and basetxt2) then
-                mat:SetTexture("$detail", "no_errors/missing1")
-                mat:SetInt("$detailscale", 0)
-                mat:SetInt("$detailblendmode", 0)
-                waserror = true
+        if was_error then
+            if material_path:lower():find("glass", 1, true) then
+                material:SetInt("$no_draw", 1)
             end
         end
 
-        if waserror then
-            if isglass then
-                mat:SetInt("$no_draw", 1)
-            end
-        end
-
-        return waserror
+        return was_error
     end
 
-    local function GetModelMaterials(mdlpath)
-        local mdl = mdlinspect.Open(mdlpath)
+    function GetModelMaterials(model_path)
+        local mdl = mdlinspect.Open(model_path)
         if not mdl then return {}, false end
 
         mdl:ParseHeader()
 
         local dirs = mdl:TextureDirs()
-        local texturenames = mdl:Textures()
+        local texture_names = mdl:Textures()
         local materials = {}
-        local arevalid = true
+        local valid_materials = true
         for _, dir in ipairs(dirs) do
-            for _, textname in ipairs(texturenames) do
-                local path = dir .. textname[1]
+            for _, texture_name in ipairs(texture_names) do
+                local path = dir .. texture_name[1]
                 if file.Exists(path, "GAME") then
-                    local waserror = TryFixMaterial(path)
-                    if waserror then
-                        arevalid = false
+                    local was_error = TryFixMaterial(path)
+                    if was_error then
+                        valid_materials = false
                     end
                 end
             end
         end
+
         mdl:Close()
 
-        return materials, arevalid
+        return materials, valid_materials
     end
 
-    local function FixStaticProps()
+    function FixStaticProps()
         local count = 0
         local done = {}
-        for _, data in ipairs(staticprops) do
-            for _, staticprop in pairs(data.entries) do
-                if istable(staticprop) then
-                    local mdlpath = staticprop.PropType
-                    if mdlpath and not done[mdlpath] then
-                        local materials, matsvalid = GetModelMaterials(mdlpath)
-                        if IsMdlOk(mdlpath) then
-                            if not matsvalid then
-                                local csent = ents.CreateClientProp(mdlpath)
-                                csent:SetMaterial("!no_errors_mat1")
-                                csent:SetPos(staticprop.Origin)
-                                csent:SetAngles(staticprop.Angles)
-                                csent:SetModelScale(1.1)
-                                csent:Spawn()
+        for _, data in ipairs(static_props) do
+            for _, static_prop in pairs(data.entries) do
+                if istable(static_prop) then
+                    local model_path = static_prop.PropType
+                    if model_path and not done[model_path] then
+                        local materials, valid_materials = GetModelMaterials(model_path)
+                        if IsMdlOk(model_path) then
+                            if not valid_materials then
+                                local client_entity = ents.CreateClientProp(model_path)
+                                client_entity:SetMaterial("!no_errors_mat1")
+                                client_entity:SetPos(static_prop.Origin)
+                                client_entity:SetAngles(static_prop.Angles)
+                                client_entity:SetModelScale(1.1)
+                                client_entity:Spawn()
                                 count = count + 1
                             end
                         else
-                            done[mdlpath] = true
+                            done[model_path] = true
                         end
                     end
                 end
@@ -220,48 +214,51 @@ if CLIENT then
     end
 
     local count = 0
-    local checkedmats = {}
-    local function ReplaceMissingMaterials(mats)
-        for _, mat in pairs(mats) do
-            if not checkedmats[mat] then
-                local waserror = TryFixMaterial(mat)
-                if waserror then
+    local checked_materials = {}
+    function ReplaceMissingMaterials(materials)
+        for _, material in pairs(materials) do
+            if not checked_materials[material] then
+                local was_error = TryFixMaterial(material)
+                if was_error then
                     count = count + 1
                 end
-                checkedmats[mat] = true
+
+                checked_materials[material] = true
             end
         end
     end
 
-    local function HideErrorMaterial()
-        local errormat = Material("models/error/new light1")
-        errormat:SetInt("$alpha", 0)
-        errormat:SetInt("$no_draw", 1)
-        errormat:Recompute()
+    function HideErrorMaterial()
+        local error_material = Material("models/error/new light1")
+        error_material:SetInt("$alpha", 0)
+        error_material:SetInt("$no_draw", 1)
+        error_material:Recompute()
+
         Print("Got rid of error models")
     end
 
     hook.Add("InitPostEntity", tag, function()
-        local preinit = SysTime()
+        local pre_init_time = SysTime()
         MsgC(orange, "- !*$%? ERRORS -\n")
         MsgC(orange, "-----------------------------------------------\n")
         Print("Initializing...")
-        ReplaceMissingMaterials(mapmaterials)
+
+        ReplaceMissingMaterials(map_materials)
         ReplaceMissingMaterials(game.GetWorld():GetMaterials())
         FixStaticProps()
         HideErrorMaterial()
+
         if count > 0 then
             Print("Fixed " .. count .. " missing materials")
         else
             Print("No materials to fix")
         end
-        local diff = (SysTime() - preinit) * 1000
-        Print(("Initialized in %.2fms"):format(diff))
+
+        Print(("Initialized in %.2fms"):format((SysTime() - pre_init_time) * 1000))
         MsgC(orange, "-----------------------------------------------\n")
     end)
 
     local blacklist = {"vfire.*", "Player"}
-
     if file.Exists("no_error_blacklist.json", "DATA") then
         local content = file.Read("no_error_blacklist.json", "DATA") or ""
         local lines = ("\r?\n"):Explode(content)
@@ -276,12 +273,14 @@ if CLIENT then
     concommand.Add("no_error_blacklist", function(_, _, _, arg)
         local class = arg:Trim()
         if #class == 0 then return end
+
         table.insert(blacklist, class)
         file.Append("no_error_blacklist.json", "\n" .. class)
+
         Print(("Added \'%s\' to the blacklist"):format(class))
     end, nil, "Blacklist a class from being modified")
 
-    local function IsBlacklisted(ent)
+    function IsBlacklisted(ent)
         for _, class in ipairs(blacklist) do
             if GetClass(ent):match(class) then
                 return true
@@ -291,35 +290,41 @@ if CLIENT then
         return false
     end
 
-    local ents = {}
+    local entities = {}
     local lookup = {}
     local done = {}
-    local function RegisterEnt(ent)
+    function RegisterEnt(ent)
         if not IsValid(ent) then return end
         if IsBlacklisted(ent) then return end
 
         local model = GetModel(ent)
-        if model == errormodel then
-            local i = table.insert(ents, ent)
+        if model == error_model then
+            local i = table.insert(entities, ent)
             lookup[ent] = i
         end
+
         if model and not done[model] then
             ReplaceMissingMaterials(ent:GetMaterials())
             done[model] = true
         end
     end
 
-    local function UnregisterEnt(ent)
+    function UnregisterEnt(ent)
         if not IsValid(ent) then return end
 
         local i = lookup[ent]
         if i then
-            table.remove(ents, i)
+            table.remove(entities, i)
             lookup[ent] = nil
         end
     end
 
-    hook.Add("NetworkEntityCreated", tag, RegisterEnt)
+    hook.Add("NetworkEntityCreated", tag, function(ent)
+        timer.Simple(0, function() -- maybe too early otherwise
+            RegisterEnt(ent)
+        end)
+    end)
+
     hook.Add("EntityRemoved", tag, UnregisterEnt)
 
     --[[net.Receive(tag, function()
@@ -329,7 +334,7 @@ if CLIENT then
         if disconnected then
             UnregisterEnt(ply)
         else
-            if GetModel(ply) == errormodel then
+            if GetModel(ply) == error_model then
                 RegisterEnt(ply)
             else
                 UnregisterEnt(ply)
@@ -339,7 +344,7 @@ if CLIENT then
 
     local Box = render.DrawWireframeBox
     local function DrawHitboxes()
-        for _, ent in ipairs(ents) do
+        for _, ent in ipairs(entities) do
             if IsValid(ent) then
                 local pos = GetPos(ent)
                 local ang = GetAngles(ent)
@@ -361,7 +366,7 @@ if CLIENT then
             hook.Add("PostDrawTranslucentRenderables", tag, DrawHitboxes)
         else
             hook.Remove("PostDrawTranslucentRenderables", tag)
-            for _, ent in ipairs(ents) do
+            for _, ent in ipairs(entities) do
                 if IsValid(ent) then
                     SetNoDraw(ent, false)
                 end
