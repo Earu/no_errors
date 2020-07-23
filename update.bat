@@ -1,5 +1,5 @@
 @echo off
-title Fuck Errors Update
+title No Errors Update
 set /p changes="Changes: "
 
 git commit -a -m "%changes%"

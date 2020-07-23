@@ -1,4 +1,4 @@
-local tag = "fuck_errors"
+local tag = "no_errors"
 
 if SERVER then
     AddCSLuaFile("deps/luabsp.lua")
@@ -8,7 +8,7 @@ if SERVER then
 
     resource.AddWorkshop("1604765873")
 
-    hook.Add("PlayerSetModel", tag, function(ply)
+    --[[hook.Add("PlayerSetModel", tag, function(ply)
         net.Start(tag)
         net.WriteEntity(ply)
         net.WriteBool(false)
@@ -20,7 +20,7 @@ if SERVER then
         net.WriteEntity(ply)
         net.WriteBool(true)
         net.Broadcast()
-    end)
+    end)]]--
 end
 
 if CLIENT then
@@ -260,7 +260,7 @@ if CLIENT then
         MsgC(orange, "-----------------------------------------------\n")
     end)
 
-    local blacklist = {"vfire.*"}
+    local blacklist = {"vfire.*", "Player"}
 
     if file.Exists("no_error_blacklist.json", "DATA") then
         local content = file.Read("no_error_blacklist.json", "DATA") or ""
@@ -322,7 +322,7 @@ if CLIENT then
     hook.Add("NetworkEntityCreated", tag, RegisterEnt)
     hook.Add("EntityRemoved", tag, UnregisterEnt)
 
-    net.Receive(tag, function()
+    --[[net.Receive(tag, function()
         local ply = net.ReadEntity()
         local disconnected = net.ReadBool()
         if not IsValid(ply) then return end
@@ -335,7 +335,7 @@ if CLIENT then
                 UnregisterEnt(ply)
             end
         end
-    end)
+    end)]]--
 
     local Box = render.DrawWireframeBox
     local function DrawHitboxes()
