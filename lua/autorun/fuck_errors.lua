@@ -279,6 +279,8 @@ if CLIENT then
     end, nil, "Blacklist a class from being modified")
 
     function IsBlacklisted(ent)
+        if ent:GetNoDraw() then return true end
+
         for _, class in ipairs(blacklist) do
             if GetClass(ent):match(class) then
                 return true
