@@ -6,7 +6,7 @@ if SERVER then
 
     util.AddNetworkString(tag)
 
-    resource.AddWorkshop("1604765873")
+    resource.AddFile("models/error.mdl")
 
     --[[hook.Add("PlayerSetModel", tag, function(ply)
         net.Start(tag)
@@ -62,7 +62,6 @@ if CLIENT then
     local GetModel = meta.GetModel
     local GetAngles = meta.GetAngles
     local IsValid = meta.IsValid
-    local GetAngles = meta.GetAngles
     local OBBMaxs = meta.OBBMaxs
     local OBBMins = meta.OBBMins
     local SetNoDraw = meta.SetNoDraw
@@ -185,7 +184,7 @@ if CLIENT then
                 if istable(static_prop) then
                     local model_path = static_prop.PropType
                     if model_path and not done[model_path] then
-                        local materials, valid_materials = GetModelMaterials(model_path)
+                        local _, valid_materials = GetModelMaterials(model_path)
                         if IsMdlOk(model_path) then
                             if not valid_materials then
                                 local client_entity = ents.CreateClientProp(model_path)
