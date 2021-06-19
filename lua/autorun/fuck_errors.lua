@@ -6,7 +6,7 @@ if SERVER then
 
     util.AddNetworkString(tag)
 
-    resource.AddFile("models/error.mdl")
+    resource.AddWorkshop("1604765873")
 
     --[[hook.Add("PlayerSetModel", tag, function(ply)
         net.Start(tag)
@@ -131,19 +131,15 @@ if CLIENT then
         end
 
         local detail_texture = material:GetTexture("$detail")
-        if ShouldFixShader(key_values, "$detail", detail_texture) then
-            if base_texture or base_texture2 then
-                material:SetTexture("$detail", "no_errors/missing1")
-                material:SetInt("$detailscale", 0)
-                material:SetInt("$detailblendmode", 0)
-                was_error = true
-            end
+        if ShouldFixShader(key_values, "$detail", detail_texture) and (base_texture or base_texture2) then
+            material:SetTexture("$detail", "no_errors/missing1")
+            material:SetInt("$detailscale", 0)
+            material:SetInt("$detailblendmode", 0)
+            was_error = true
         end
 
-        if was_error then
-            if material_path:lower():find("glass", 1, true) then
-                material:SetInt("$no_draw", 1)
-            end
+        if was_error and material_path:lower():find("glass", 1, true) then
+            material:SetInt("$no_draw", 1)
         end
 
         return was_error
