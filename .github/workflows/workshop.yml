@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  workshop-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Gmod Steam Workshop
+        uses: Earu/GSW-action@V2.1
+        with:
+          account-name: ${{secrets.STEAM_NAME}}
+          account-password: ${{secrets.STEAM_PASSWORD}}
+          workshop-id: '1604765873'
+          addon-path: ${{env.GITHUB_WORKSPACE}}
